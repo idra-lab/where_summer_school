@@ -1,5 +1,7 @@
 # Andrea Del Prete
 
+<img src="delprete_photo.jpg" width="200" align="right" hspace="12" vspace="8"/>
+
 Andrea Del Prete is Associate Professor in the Department of Industrial Engineering at the University of Trento, where he is part of the Interdepartmental Robotics Lab (IDRA). His research sits at the crossroads of **robot control, reinforcement learning, trajectory optimization, safety certificates, and numerical algorithms**, with a strong focus on making robots smarter, safer, and more capable in the real world.
 
 Before joining Trento, he worked at the Max Planck Institute for Intelligent Systems, LAAS-CNRS, and the Italian Institute of Technology, contributing to advanced control and optimization methods for humanoid platforms including **iCub, HRP-2, and Athena**. Over the years, his work has consistently connected rigorous theory with hands-on robotic systems, especially in locomotion and whole-body control.

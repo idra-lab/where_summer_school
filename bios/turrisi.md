@@ -6,7 +6,8 @@ He is a postdoctoral researcher at the [Dynamic Legged Systems](https://dls.iit.
 
 Beyond research, he is passionate about open-source software, reproducible research, and teaching.
 
-Contact: turrisigiulio@gmail.com 
-Other sites: [Google Scholar](https://scholar.google.com/citations?user=yt9v8skAAAAJ&hl=en) - [Linkedin](https://www.linkedin.com/in/giulio-turrisi/)
+Webpage: [Google Scholar](https://scholar.google.com/citations?user=yt9v8skAAAAJ&hl=en)
 
+Linkedin: [www.linkedin.com/in/marco-camurri-a8750783](https://www.linkedin.com/in/giulio-turrisi/)
 
+Github: https://github.com/giulioturrisi

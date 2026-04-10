@@ -8,6 +8,6 @@ Beyond research, he is passionate about open-source software, reproducible resea
 
 Webpage: [Google Scholar](https://scholar.google.com/citations?user=yt9v8skAAAAJ&hl=en)
 
-Linkedin: [www.linkedin.com/in/marco-camurri-a8750783](https://www.linkedin.com/in/giulio-turrisi/)
+Linkedin: https://www.linkedin.com/in/giulio-turrisi/
 
 Github: https://github.com/giulioturrisi

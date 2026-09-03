@@ -2,4 +2,6 @@ Official GitHub page of **WHERE: Walk the future - International Euregio Summer 
 
 You can find the course timetables [here](./Course_timetable_WHERE.pdf).
 
+You can find the code for the lab practical session (in simulation) [here](https://github.com/idra-lab/wheresim).
+
 Speaker bios [here](./bios).

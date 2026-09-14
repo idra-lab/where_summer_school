@@ -1,0 +1,524 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.3cm]{geometry}
+\usepackage[T1]{fontenc}
+\usepackage[utf8]{inputenc}
+\usepackage{lmodern}
+\usepackage{amsmath,amssymb,bm}
+\usepackage{booktabs}
+\usepackage{enumitem}
+\usepackage{xcolor}
+\usepackage{listings}
+\usepackage{hyperref}
+
+\hypersetup{
+  colorlinks=true,
+  linkcolor=blue,
+  urlcolor=blue
+}
+
+\definecolor{codegray}{RGB}{245,245,245}
+\definecolor{codeblue}{RGB}{0,70,140}
+
+\lstset{
+  language=Python,
+  basicstyle=\ttfamily\small,
+  backgroundcolor=\color{codegray},
+  keywordstyle=\color{codeblue},
+  frame=single,
+  breaklines=true,
+  showstringspaces=false
+}
+
+\title{\textbf{Practical Session: Locomotion Software for Legged Robots in Simulation}}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Objectives}
+
+This practical session introduces the main components of a model-based locomotion software stack for a quadruped robot in simulation. The goal is to progressively build, tune, and test a controller that combines centroidal Model Predictive Control (MPC), gait scheduling, foothold generation, swing-leg control, stance-force control, inverse kinematics, state estimation, and terrain adaptation.
+
+The experiments can be performed in MuJoCo using the provided robot model and simulation interface.
+
+\section{Centroidal Model in CasADi}
+
+The centroidal dynamics describe the evolution of the robot center of mass (CoM) and angular momentum under the action of contact forces. For a robot of mass \(m\), CoM position \(\bm{c}\), and contact forces \(\bm{f}_i\), the translational dynamics are:
+
+\begin{align*}
+m\ddot{\bm{c}} &= \sum_{i=1}^{n_c} \bm{f}_i + m\bm{g}.
+\end{align*}
+
+The angular momentum dynamics about the CoM are:
+
+\begin{align*}
+\dot{\bm{L}} &=
+\sum_{i=1}^{n_c}
+(\bm{p}_i-\bm{c}) \times \bm{f}_i,
+\end{align*}
+
+where \(\bm{p}_i\) is the position of the \(i\)-th contact point.
+
+A possible state is:
+
+\begin{align*}
+\bm{x} =
+\begin{bmatrix}
+\bm{c} &
+\dot{\bm{c}} &
+\bm{\theta} &
+\bm{\omega}
+\end{bmatrix}^{T},
+\end{align*}
+
+while the MPC input contains the contact forces:
+
+\begin{align*}
+\bm{u} =
+\begin{bmatrix}
+\bm{f}_1 &
+\bm{f}_2 &
+\bm{f}_3 &
+\bm{f}_4
+\end{bmatrix}^{T}.
+\end{align*}
+
+\subsection*{Exercise}
+
+\begin{enumerate}[label=\arabic*.]
+    \item Implement the continuous centroidal dynamics in CasADi.
+    \item Discretize the model using forward Euler or Runge--Kutta integration.
+    \item Define a finite-horizon optimal control problem.
+    \item Add unilateral-contact and friction constraints.
+    \item Compare the centroidal prediction with the simulated CoM evolution in MuJoCo.
+\end{enumerate}
+
+For each active contact:
+
+\begin{align*}
+f_{z,i} &\geq 0, \\
+|f_{x,i}| &\leq \mu f_{z,i}, \\
+|f_{y,i}| &\leq \mu f_{z,i}.
+\end{align*}
+
+
+
+\section{Raibert-Style Foothold Generator}
+
+At lift-off, the desired touchdown position can be computed from the nominal hip location, desired velocity, and velocity tracking error:
+
+\begin{align*}
+\bm{p}_{f,i}^{\mathrm{des}} =
+\bm{p}_{\mathrm{hip},i}
++
+\bm{p}_{i}^{\mathrm{nom}}
++
+\frac{T_{\mathrm{st}}}{2}\bm{v}^{\mathrm{des}}
++
+k_v
+\left(
+\bm{v} - \bm{v}^{\mathrm{des}}
+\right),
+\end{align*}
+
+where \(T_{\mathrm{st}}\) is the stance duration and \(k_v\) is the velocity-feedback gain.
+
+
+\subsection*{Exercises}
+
+\begin{enumerate}[label=\arabic*.]
+    \item Implement the nominal foothold generator.
+    \item Command forward, lateral, and turning motion.
+    \item Visualize the planned touchdown locations.
+    \item Tune \(k_v\) and observe its influence on velocity recovery.
+    \item Add reachable-workspace bounds around the hip.
+\end{enumerate}
+
+\section{Swing-Foot Trajectory}
+
+The swing-foot trajectory must move the foot smoothly from lift-off to the desired touchdown point. It should provide sufficient clearance above the terrain and have low touchdown velocity.
+
+A Cartesian feedback-linearization law is:
+
+\begin{align*}
+\ddot{\bm{p}}^{\mathrm{cmd}} =
+\ddot{\bm{p}}^{\mathrm{ref}}
++
+\bm{K}_p
+\left(
+\bm{p}^{\mathrm{ref}}-\bm{p}
+\right)
++
+\bm{K}_d
+\left(
+\dot{\bm{p}}^{\mathrm{ref}}-\dot{\bm{p}}
+\right).
+\end{align*}
+
+Implement and compare:
+
+\begin{enumerate}[label=\arabic*.]
+    \item A Cartesian feedback-linearization controller;
+    \item A cubic polynomial trajectory implemented numerically;
+    \item A cubic spline generated with \texttt{scipy.interpolate}.
+\end{enumerate}
+
+For a cubic trajectory:
+
+\begin{align*}
+p(t) = a_0 + a_1t + a_2t^2 + a_3t^3.
+\end{align*}
+
+Choose the coefficients to satisfy initial and final position and velocity boundary conditions.
+
+\subsection*{Exercises}
+
+\begin{enumerate}[label=\arabic*.]
+    \item Generate horizontal motion from lift-off to touchdown.
+    \item Add a vertical swing-height profile.
+    \item Compare position, velocity, and acceleration continuity.
+    \item Change the swing height and test obstacle clearance.
+    \item Verify that touchdown velocity is close to zero.
+\end{enumerate}
+
+\section{Stance Controller}
+
+During stance, the desired contact force computed by the MPC is converted into joint torques through the foot Jacobian:
+
+\begin{align*}
+\bm{\tau}_i = \bm{J}_i^T \bm{f}_i^{\mathrm{des}}.
+\end{align*}
+
+The Jacobian must be consistent with the frame in which the contact force is expressed.
+
+\subsection*{Exercises}
+
+\begin{enumerate}[label=\arabic*.]
+    \item Extract the foot Jacobian from the robot model.
+    \item Apply a desired vertical force to one leg.
+    \item Check the resulting joint torques.
+    \item Compare desired and measured ground-reaction forces.
+    \item Verify force direction and coordinate-frame conventions.
+\end{enumerate}
+
+\section{Inverse Kinematics}
+
+Inverse kinematics maps desired swing-foot trajectories into desired joint positions or velocities.
+
+\subsection{Numerical Inverse Kinematics}
+
+A damped least-squares solution is:
+
+\begin{align*}
+\dot{\bm{q}} =
+\bm{J}^{T}
+\left(
+\bm{J}\bm{J}^{T}+\lambda^2\bm{I}
+\right)^{-1}
+\dot{\bm{p}}^{\mathrm{des}}.
+\end{align*}
+
+The joint reference can then be obtained by numerical integration:
+
+\begin{align*}
+\bm{q}_{k+1}^{\mathrm{des}}
+=
+\bm{q}_k^{\mathrm{des}}
++
+\dot{\bm{q}}^{\mathrm{des}} \Delta t.
+\end{align*}
+
+\subsection{QP-Based Inverse Kinematics}
+
+A QP formulation is:
+
+\begin{align*}
+\min_{\dot{\bm{q}}}
+\quad &
+\left\|
+\bm{J}\dot{\bm{q}}-\dot{\bm{p}}^{\mathrm{des}}
+\right\|^2
++
+\lambda
+\left\|
+\dot{\bm{q}}
+\right\|^2,
+\end{align*}
+
+subject to joint limits and velocity bounds.
+
+\subsection*{Exercises}
+
+\begin{enumerate}[label=\arabic*.]
+    \item Implement numerical IK for one leg.
+    \item Add joint limits and damping near singularities.
+    \item Implement or use a QP-based IK solver.
+    \item Compare Cartesian tracking errors for the two methods.
+    \item Use the resulting joint references during swing.
+\end{enumerate}
+
+
+\section{MPC Tuning}
+
+The MPC should track desired CoM motion, body orientation, velocity, and contact forces. A typical cost function is:
+
+\begin{align*}
+	J =
+	\sum_{k=0}^{N-1}
+	\left[
+	\|\bm{x}_k-\bm{x}^{\mathrm{ref}}_k\|_{\bm{Q}}^2
+	+
+	\|\bm{u}_k-\bm{u}^{\mathrm{ref}}_k\|_{\bm{R}}^2
+	+
+	\|\bm{u}_k-\bm{u}_{k-1}\|_{\bm{R}_{\Delta}}^2
+	\right]
+	+
+	\|\bm{x}_{N}-\bm{x}^{\mathrm{ref}}_{N}\|_{\bm{Q}_f}^2.
+\end{align*}
+
+Important parameters are:
+
+\begin{itemize}
+	\item Prediction horizon \(N\);
+	\item MPC sampling time;
+	\item Contact schedule and selected gait;
+	\item CoM position and velocity weights;
+	\item Base orientation and angular velocity weights;
+	\item Contact-force regularization and force-rate regularization;
+	\item Friction coefficient and force limits.
+\end{itemize}
+
+\subsection*{Exercises}
+
+\begin{enumerate}[label=\arabic*.]
+	\item Start from a standing robot and regulate the CoM to a fixed reference.
+	\item Command a constant forward velocity.
+	\item Change the prediction horizon and evaluate stability, tracking, and computational time.
+	\item Increase the velocity tracking weight and observe the resulting gait.
+	\item Increase force regularization and observe the reduction in force variation.
+	\item Compare the behaviour for different gait frequencies.
+	\item Try  to reduce the MPC replanning frequency, what happens to the robot behaviour?
+\end{enumerate}
+
+\section{Gait Scheduler}
+
+The gait scheduler generates a binary contact state for each foot:
+
+\begin{align*}
+	s_i(t) \in \{0,1\},
+\end{align*}
+
+where \(s_i=1\) denotes stance and \(s_i=0\) denotes swing.
+
+Each gait is described by its cycle duration, duty factor, and phase offsets.
+
+\begin{table}[h]
+	\centering
+	\begin{tabular}{lll}
+		\toprule
+		Gait & Swing pattern & Typical use \\
+		\midrule
+		Crawl & One foot swings at a time & Slow and statically stable walking \\
+		Pace & Left and right lateral pairs alternate & Fast lateral-pair gait \\
+		Trot & Diagonal pairs alternate & Dynamic walking and running \\
+		Bound & Front and hind pairs alternate & Fast locomotion \\
+		\bottomrule
+	\end{tabular}
+\end{table}
+
+\subsection*{Exercises}
+
+\begin{enumerate}[label=\arabic*.]
+	\item Implement a periodic phase variable.
+	\item Generate the contact schedule for crawl, pace, and trot.
+	\item Plot the contact state of each leg over several gait periods.
+	\item Ensure that the gait scheduler, MPC contacts, and swing-leg state are synchronized.
+	\item Change duty factor and gait frequency during simulation.
+\end{enumerate}
+
+\section{Foothold Optimization and Push Recovery}
+
+Foothold optimization modifies the nominal foothold generated by the Raibert rule to improve balance recovery and maintain feasible steps.
+
+A simple objective is:
+
+\begin{align*}
+\min_{\bm{p}_f}
+\quad &
+\left\|
+\bm{p}_f-\bm{p}_f^{\mathrm{nom}}
+\right\|_{\bm{W}}^2
++
+w_c
+\left\|
+\bm{p}_f-\bm{p}_{\mathrm{capture}}
+\right\|^2,
+\end{align*}
+
+subject to feasible workspace and terrain constraints.
+
+\subsection*{Experiment}
+
+\begin{enumerate}[label=\arabic*.]
+    \item Walk at constant velocity with foothold optimization disabled.
+    \item Apply a push to the robot in MuJoCo (drag the robot with the mouse).
+    \item Record CoM position, velocity error, and planned footholds.
+    \item Enable foothold optimization.
+    \item Repeat the same push and compare the recovery.
+\end{enumerate}
+
+The expected behaviour is a corrective foothold placed in the direction required to recover balance.
+
+\section{Integral Action and Payload Adaptation}
+
+Integral action can compensate for persistent tracking errors caused by unmodelled disturbances, such as an additional payload:
+
+\begin{align*}
+\bm{e}_I(t)
+=
+\int_{0}^{t}
+\left(
+\bm{v}^{\mathrm{des}}-\bm{v}
+\right)
+dt.
+\end{align*}
+
+The integral state can be added to the body-position or velocity controller.
+
+\subsection*{Experiment}
+
+\begin{enumerate}[label=\arabic*.]
+    \item Tune the controller for the nominal robot.
+    \item Add an additional 5kg mass to the robot model in MuJoCo.
+    \item Test walking without integral action.
+    \item Activate the integral term and compare velocity tracking.
+\end{enumerate}
+
+\section{State Estimation}
+
+Replace the perfect simulated state with an estimated state. The estimator may combine:
+
+\begin{itemize}
+    \item IMU angular velocity and linear acceleration;
+    \item Joint encoders;
+    \item Foot kinematics;
+    \item Contact detection;
+    \item Optional ground-truth state only for debugging.
+\end{itemize}
+
+An Extended Kalman Filter can estimate base orientation, position, velocity, and IMU biases.
+
+\subsection*{Exercises}
+
+\begin{enumerate}[label=\arabic*.]
+    \item Compare estimated and ground-truth base velocity.
+    \item Add noise to IMU and joint measurements.
+    \item Tune process noise and measurement noise.
+    \item Disable contact updates and observe estimator drift.
+    \item (optional) Study the effect of incorrect contact detection. Consider implementing Haptic touch-down.
+\end{enumerate}
+
+\section{Frontal Reflex}
+
+A frontal reflex can be activated when the tracking error exceeds a threshold:
+
+\begin{align*}
+\left\|
+\bm{e}_{\mathrm{track}}
+\right\|
+>
+e_{\mathrm{th}}.
+\end{align*}
+
+Possible reflex actions are:
+
+ 
+
+\subsection*{Exercises}
+
+\begin{enumerate}[label=\arabic*.]
+    \item Define a frontal tracking error based on pitch, CoM displacement, or velocity.
+    \item Select an activation threshold.
+    \item Move against an obstacle (e.g. a step) with the blind robot
+    \item Verify that the reflex is inactive during nominal walking.
+    \item Tune the threshold to avoid late or unnecessary activation.
+\end{enumerate}
+
+\section{Vision-Based Foothold Height Adjustment}
+
+Use a terrain-height estimate to modify the vertical component of the planned foothold:
+
+\begin{align*}
+p_{f,z}^{\mathrm{des}} =
+h_{\mathrm{terrain}}
+\left(
+p_{f,x}^{\mathrm{des}},
+p_{f,y}^{\mathrm{des}}
+\right)
++
+h_{\mathrm{margin}}.
+\end{align*}
+
+The safety margin accounts for terrain-map uncertainty and contact-model imperfections.
+
+\subsection*{Exercises}
+
+\begin{enumerate}[label=\arabic*.]
+    \item Test the controller on flat terrain.
+    \item Add steps, ramps, and isolated obstacles.
+    \item Query the terrain height at the planned foothold.
+    \item Adjust touchdown height and swing-foot clearance.
+    \item Compare missed contacts with and without height adjustment.
+\end{enumerate}
+
+\section{Rough-Terrain Tests and Terrain Estimation}
+
+On uneven terrain, estimate a local terrain plane from the stance-foot positions. The terrain normal can then be used to generate a terrain-aligned desired base orientation.
+
+This adaptation helps maintain a suitable leg configuration and improves contact consistency on slopes and uneven ground.
+
+\begin{table}[h]
+\centering
+\begin{tabular}{p{0.32\textwidth}p{0.56\textwidth}}
+\toprule
+Configuration & Expected behaviour \\
+\midrule
+Fixed horizontal body reference &
+The body remains aligned with the world frame; leg workspace and contact quality may degrade on slopes. \\[0.2cm]
+Terrain-aligned body reference &
+The desired body roll and pitch follow the estimated local terrain plane. \\[0.2cm]
+Terrain-aware orientation and footholds &
+The robot adapts both body pose and foot touchdown height, improving robustness on rough terrain. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection*{Final Experiment}
+
+\begin{enumerate}[label=\arabic*.]
+    \item Create a rough-terrain scenario in MuJoCo.
+    \item Run the robot with terrain estimation disabled.
+    \item Repeat with terrain estimation enabled.
+    \item Compare base orientation, foot tracking error, contact forces, and velocity tracking.
+    \item Discuss the role of terrain estimation in stability and locomotion robustness.
+\end{enumerate}
+
+%\section{Expected Final Demonstration}
+%
+%At the end of the practical session, the robot should be able to:
+%
+%\begin{itemize}
+%    \item Walk using crawl, pace, and trot gaits;
+%    \item Track a commanded body velocity using centroidal MPC;
+%    \item Generate swing-foot trajectories and stance torques;
+%    \item Use numerical or QP-based inverse kinematics;
+%    \item Adapt footholds with Raibert feedback and foothold optimization;
+%    \item Recover from pushes through corrective stepping;
+%    \item Compensate partially for an added payload using integral action;
+%    \item Walk on uneven terrain using terrain-aware foothold and base-orientation references.
+%\end{itemize}
+
+\end{document}

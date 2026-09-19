@@ -96,19 +96,18 @@ while the MPC input contains the contact forces:
 
 \begin{enumerate}[label=\arabic*.]
     \item Implement the continuous centroidal dynamics in CasADi.
-    \item Discretize the model using forward Euler or Runge--Kutta integration.
-    \item Define a finite-horizon optimal control problem.
-    \item Add unilateral-contact and friction constraints.
-    \item Compare the centroidal prediction with the simulated CoM evolution in MuJoCo.
+    %\item Discretize the model using forward Euler    
+    %\item Add unilateral-contact and friction constraints with $\mu = 0.8$.
+    %\item Compare the centroidal prediction with the simulated CoM evolution in MuJoCo.
 \end{enumerate}
-
-For each active contact:
-
-\begin{align*}
-f_{z,i} &\geq 0, \\
-|f_{x,i}| &\leq \mu f_{z,i}, \\
-|f_{y,i}| &\leq \mu f_{z,i}.
-\end{align*}
+%
+%For each active contact:
+%
+%\begin{align*}
+%f_{z,i} &\geq 0, \\
+%|f_{x,i}| &\leq \mu f_{z,i}, \\
+%|f_{y,i}| &\leq \mu f_{z,i}.
+%\end{align*}
 
 
 
@@ -139,35 +138,57 @@ The joint reference can then be obtained by numerical integration:
 \dot{\bm{q}}^{\mathrm{des}} \Delta t.
 \end{align*}
 
-\subsection{QP-Based Inverse Kinematics}
+%\subsection{QP-Based Inverse Kinematics}
+%
+%A QP formulation is:
+%
+%\begin{align*}
+%\min_{\dot{\bm{q}}}
+%\quad &
+%\left\|
+%\bm{J}\dot{\bm{q}}-\dot{\bm{p}}^{\mathrm{des}}
+%\right\|^2
+%+
+%\lambda
+%\left\|
+%\dot{\bm{q}}
+%\right\|^2,
+%\end{align*}
+%
+%subject to joint limits and velocity bounds.
+%
+%\subsection*{Exercises}
+%
+%\begin{enumerate}[label=\arabic*.]
+%    \item Implement numerical IK for one leg.
+%    \item Add joint limits and damping near singularities.
+%    \item Implement or use a QP-based IK solver.
+%    \item Compare Cartesian tracking errors for the two methods.
+%    \item Use the resulting joint references during swing.
+%\end{enumerate}
 
-A QP formulation is:
 
-\begin{align*}
-\min_{\dot{\bm{q}}}
-\quad &
-\left\|
-\bm{J}\dot{\bm{q}}-\dot{\bm{p}}^{\mathrm{des}}
-\right\|^2
-+
-\lambda
-\left\|
-\dot{\bm{q}}
-\right\|^2,
-\end{align*}
+\section{Terrain Estimation}
 
-subject to joint limits and velocity bounds.
+On uneven terrain, estimate a local terrain plane from the stance-foot positions. The terrain normal can then be used to generate a terrain-aligned desired base orientation.
 
-\subsection*{Exercises}
+This adaptation helps maintain a suitable leg configuration and improves contact consistency on slopes and uneven ground.
 
-\begin{enumerate}[label=\arabic*.]
-    \item Implement numerical IK for one leg.
-    \item Add joint limits and damping near singularities.
-    \item Implement or use a QP-based IK solver.
-    \item Compare Cartesian tracking errors for the two methods.
-    \item Use the resulting joint references during swing.
-\end{enumerate}
-
+\begin{table}[h]
+	\centering
+	\begin{tabular}{p{0.32\textwidth}p{0.56\textwidth}}
+		\toprule
+		Configuration & Expected behaviour \\
+		\midrule
+		Fixed horizontal body reference &
+		The body remains aligned with the world frame; leg workspace and contact quality may degrade on slopes. \\[0.2cm]
+		Terrain-aligned body reference &
+		The desired body roll and pitch follow the estimated local terrain plane. \\[0.2cm]
+		Terrain-aware orientation and footholds &
+		The robot adapts both body pose and foot touchdown height, improving robustness on rough terrain. \\
+		\bottomrule
+	\end{tabular}
+\end{table}
 
 \section{MPC Tuning}
 
@@ -200,22 +221,31 @@ Important parameters are:
 \end{itemize}
 
 \subsection*{Exercises}
+To have the possibility to launch plotjuggler run \verb| ros2\run_controller.py| and  \verb|ros2\run_simulator.py.|
+ 
 
 \begin{enumerate}[label=\arabic*.]
-	\item Start from a standing robot and regulate the CoM to a fixed reference.
-	\item Command a constant forward velocity.
-	\item Change the prediction horizon and evaluate stability, tracking, and computational time.
-	\item Increase the velocity tracking weight and observe the resulting gait.
-	\item Increase force regularization and observe the reduction in force variation.
-	\item Compare the behaviour for different gait frequencies.
-	\item Try  to reduce the MPC replanning frequency, what happens to the robot behaviour?
+	\item tune the weights of the MPC and  command a constant forward velocity.
+	\item What happens if you set W = 1000, 1000, 0.001 at Grfs weights? or W = 0.001, 0.001, 1000?
+	\item reduce to 1 the weight on pitch (base orientation weight) and try to climb on stairs.
+	\item Change the prediction horizon $N$ and evaluate stability, tracking, and computational time. Evaluate especially the performances for the crawl gait.
+	\item Increase the MPC loop duration $dT_{mpc}$ from 0.002 up 0.2 and evaluate the impact on walking performances and computation time.
+	\item what is the best tradeoff between $dT_{mpc}$ and MPC horizon $N$ for the crawl. What is the drawback of having a longer horizon in a real setting?
+	\item Having an horizon allows the MPC to run at much lower frequencies than a reactive controller, what is the minimum frequency that the MPC can still stabilize the system.
+	% warm start
+	%\item Increase the velocity tracking weight and observe the resulting gait.
+	\item trigger on and off the foothold optimization feature (if switched off is the Raiber style foothold optimization) and give disturbances to the robot pressing CTRL-mouse click
+	\item Compare the behaviour o a trot for different gait frequencies (from 1.4 Hz up to 2.4Hz ) and the the different robustness to disturbances  and the maximum velocity that you can achieve. What is the drawback of 
+	getting to high speed?
 \end{enumerate}
 
 
 
 \section{State Estimation}
 
-Replace the perfect simulated state with an estimated state. The estimator may combine:
+Replace the perfect simulated state with an estimated state. 
+
+Subscribe to the topic \verb| base_state_ekf|.  The estimator  combines:
 
 \begin{itemize}
     \item IMU angular velocity and linear acceleration;
@@ -231,86 +261,69 @@ An Extended Kalman Filter can estimate base orientation, position, velocity, and
 
 \begin{enumerate}[label=\arabic*.]
     \item Compare estimated and ground-truth base velocity.
-    \item Add noise to IMU and joint measurements.
-    \item Tune process noise and measurement noise.
-    \item Disable contact updates and observe estimator drift.
-    \item (optional) Study the effect of incorrect contact detection. Consider implementing Haptic touch-down.
+    \item try the reduce the frequency from 500 Hz (default) and check the degradation in the locomotion performances. 
+    \item Chance the belief on the filter inputs changint the doifferen covariances. If you add bias on accelerometers what happens to the estimation? 
+    Change to covariance to improve this (hint. increase covariance on IMU). 
+    \item Now remove the offset try to add gaussian noise to the joint velocities and increase the covariance to mitigate that. 
+    \item (optional) Study the effect of incorrect contact detection. CHange the minimum force threshold for contact detection and see how estimator performances are degrading.
 \end{enumerate}
+%
+%\section{Frontal Reflex}
+%
+%A frontal reflex can be activated when the tracking error exceeds a threshold:
+%
+%\begin{align*}
+%\left\|
+%\bm{e}_{\mathrm{track}}
+%\right\|
+%>
+%e_{\mathrm{th}}.
+%\end{align*}
+%
+%Possible reflex actions are:
+%
+% 
+%
+%\subsection*{Exercises}
+%
+%\begin{enumerate}[label=\arabic*.]
+%    \item Define a frontal tracking error based on pitch, CoM displacement, or velocity.
+%    \item Select an activation threshold.
+%    \item Move against an obstacle (e.g. a step) with the blind robot
+%    \item Verify that the reflex is inactive during nominal walking.
+%    \item Tune the threshold to avoid late or unnecessary activation.
+%\end{enumerate}
 
-\section{Frontal Reflex}
+%\section{Vision-Based Foothold Height Adjustment}
+%
+%Use a terrain-height estimate to modify the vertical component of the planned foothold:
+%
+%\begin{align*}
+%p_{f,z}^{\mathrm{des}} =
+%h_{\mathrm{terrain}}
+%\left(
+%p_{f,x}^{\mathrm{des}},
+%p_{f,y}^{\mathrm{des}}
+%\right)
+%+
+%h_{\mathrm{margin}}.
+%\end{align*}
+%
+%The safety margin accounts for terrain-map uncertainty and contact-model imperfections.
+%
+%\subsection*{Exercises}
+%
+%\begin{enumerate}[label=\arabic*.]
+%    \item Test the controller on flat terrain.
+%    \item Add steps, ramps, and isolated obstacles.
+%    \item Query the terrain height at the planned foothold.
+%    \item Adjust touchdown height and swing-foot clearance.
+%    \item Compare missed contacts with and without height adjustment.
+%\end{enumerate}
 
-A frontal reflex can be activated when the tracking error exceeds a threshold:
 
-\begin{align*}
-\left\|
-\bm{e}_{\mathrm{track}}
-\right\|
->
-e_{\mathrm{th}}.
-\end{align*}
 
-Possible reflex actions are:
 
- 
-
-\subsection*{Exercises}
-
-\begin{enumerate}[label=\arabic*.]
-    \item Define a frontal tracking error based on pitch, CoM displacement, or velocity.
-    \item Select an activation threshold.
-    \item Move against an obstacle (e.g. a step) with the blind robot
-    \item Verify that the reflex is inactive during nominal walking.
-    \item Tune the threshold to avoid late or unnecessary activation.
-\end{enumerate}
-
-\section{Vision-Based Foothold Height Adjustment}
-
-Use a terrain-height estimate to modify the vertical component of the planned foothold:
-
-\begin{align*}
-p_{f,z}^{\mathrm{des}} =
-h_{\mathrm{terrain}}
-\left(
-p_{f,x}^{\mathrm{des}},
-p_{f,y}^{\mathrm{des}}
-\right)
-+
-h_{\mathrm{margin}}.
-\end{align*}
-
-The safety margin accounts for terrain-map uncertainty and contact-model imperfections.
-
-\subsection*{Exercises}
-
-\begin{enumerate}[label=\arabic*.]
-    \item Test the controller on flat terrain.
-    \item Add steps, ramps, and isolated obstacles.
-    \item Query the terrain height at the planned foothold.
-    \item Adjust touchdown height and swing-foot clearance.
-    \item Compare missed contacts with and without height adjustment.
-\end{enumerate}
-
-\section{Rough-Terrain Tests and Terrain Estimation}
-
-On uneven terrain, estimate a local terrain plane from the stance-foot positions. The terrain normal can then be used to generate a terrain-aligned desired base orientation.
-
-This adaptation helps maintain a suitable leg configuration and improves contact consistency on slopes and uneven ground.
-
-\begin{table}[h]
-\centering
-\begin{tabular}{p{0.32\textwidth}p{0.56\textwidth}}
-\toprule
-Configuration & Expected behaviour \\
-\midrule
-Fixed horizontal body reference &
-The body remains aligned with the world frame; leg workspace and contact quality may degrade on slopes. \\[0.2cm]
-Terrain-aligned body reference &
-The desired body roll and pitch follow the estimated local terrain plane. \\[0.2cm]
-Terrain-aware orientation and footholds &
-The robot adapts both body pose and foot touchdown height, improving robustness on rough terrain. \\
-\bottomrule
-\end{tabular}
-\end{table}
 %
 %\subsection*{Final Experiment}
 %

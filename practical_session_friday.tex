@@ -34,15 +34,21 @@
 \author{}
 \date{}
 
+
 \begin{document}
 
 \maketitle
 
 \section{Objectives}
+This practical session introduces the main components of a model-based locomotion software stack for a quadruped robot in simulation. 
+There are several blocks/modules  in a locomotion framework, we will do exercises separately on  them and then put all the modules together and experience and do tests with the whole framework.
+The goal is to progressively build, tune, and test the following modules of the framework: inverse kinematics, state estimation, and terrain estimation.
+and a centroidal Model Predictive Control (MPC) that leverages a centroidal model. 
+The experiments can be performed in MuJoCo using the provided robot model and simulation interface. Gradient-based MPC: It uses [CasADI](https://web.casadi.org/) to define the model and [acados](https://github.com/acados/acados) to solve the optimal control problem. Sampling-based MPC: [jax](https://github.com/google/jax) for both. The simulation environment is based on [Mujoco](https://mujoco.org/).
 
-This practical session introduces the main components of a model-based locomotion software stack for a quadruped robot in simulation. The goal is to progressively build, tune, and test a controller that combines centroidal Model Predictive Control (MPC), gait scheduling, foothold generation, swing-leg control, stance-force control, inverse kinematics, state estimation, and terrain adaptation.
-
-The experiments can be performed in MuJoCo using the provided robot model and simulation interface.
+\section{Install the software}
+We encourage you to use a conda environment installation following these \href{https://github.com/iit-DLSLab/Quadruped-PyMPC/blob/main/README_install.md}{README installation instructions}
+In the folder \textit{exercises}  you can find different  exercises. 
 
 \section{Centroidal Model in CasADi}
 
@@ -105,104 +111,6 @@ f_{z,i} &\geq 0, \\
 \end{align*}
 
 
-
-\section{Raibert-Style Foothold Generator}
-
-At lift-off, the desired touchdown position can be computed from the nominal hip location, desired velocity, and velocity tracking error:
-
-\begin{align*}
-\bm{p}_{f,i}^{\mathrm{des}} =
-\bm{p}_{\mathrm{hip},i}
-+
-\bm{p}_{i}^{\mathrm{nom}}
-+
-\frac{T_{\mathrm{st}}}{2}\bm{v}^{\mathrm{des}}
-+
-k_v
-\left(
-\bm{v} - \bm{v}^{\mathrm{des}}
-\right),
-\end{align*}
-
-where \(T_{\mathrm{st}}\) is the stance duration and \(k_v\) is the velocity-feedback gain.
-
-
-\subsection*{Exercises}
-
-\begin{enumerate}[label=\arabic*.]
-    \item Implement the nominal foothold generator.
-    \item Command forward, lateral, and turning motion.
-    \item Visualize the planned touchdown locations.
-    \item Tune \(k_v\) and observe its influence on velocity recovery.
-    \item Add reachable-workspace bounds around the hip.
-\end{enumerate}
-
-\section{Swing-Foot Trajectory}
-
-The swing-foot trajectory must move the foot smoothly from lift-off to the desired touchdown point. It should provide sufficient clearance above the terrain and have low touchdown velocity.
-
-A Cartesian feedback-linearization law is:
-
-\begin{align*}
-\ddot{\bm{p}}^{\mathrm{cmd}} =
-\ddot{\bm{p}}^{\mathrm{ref}}
-+
-\bm{K}_p
-\left(
-\bm{p}^{\mathrm{ref}}-\bm{p}
-\right)
-+
-\bm{K}_d
-\left(
-\dot{\bm{p}}^{\mathrm{ref}}-\dot{\bm{p}}
-\right).
-\end{align*}
-
-Implement and compare:
-
-\begin{enumerate}[label=\arabic*.]
-    \item A Cartesian feedback-linearization controller;
-    \item A cubic polynomial trajectory implemented numerically;
-    \item A cubic spline generated with \texttt{scipy.interpolate}.
-\end{enumerate}
-
-For a cubic trajectory:
-
-\begin{align*}
-p(t) = a_0 + a_1t + a_2t^2 + a_3t^3.
-\end{align*}
-
-Choose the coefficients to satisfy initial and final position and velocity boundary conditions.
-
-\subsection*{Exercises}
-
-\begin{enumerate}[label=\arabic*.]
-    \item Generate horizontal motion from lift-off to touchdown.
-    \item Add a vertical swing-height profile.
-    \item Compare position, velocity, and acceleration continuity.
-    \item Change the swing height and test obstacle clearance.
-    \item Verify that touchdown velocity is close to zero.
-\end{enumerate}
-
-\section{Stance Controller}
-
-During stance, the desired contact force computed by the MPC is converted into joint torques through the foot Jacobian:
-
-\begin{align*}
-\bm{\tau}_i = \bm{J}_i^T \bm{f}_i^{\mathrm{des}}.
-\end{align*}
-
-The Jacobian must be consistent with the frame in which the contact force is expressed.
-
-\subsection*{Exercises}
-
-\begin{enumerate}[label=\arabic*.]
-    \item Extract the foot Jacobian from the robot model.
-    \item Apply a desired vertical force to one leg.
-    \item Check the resulting joint torques.
-    \item Compare desired and measured ground-reaction forces.
-    \item Verify force direction and coordinate-frame conventions.
-\end{enumerate}
 
 \section{Inverse Kinematics}
 
@@ -303,99 +211,7 @@ Important parameters are:
 	\item Try  to reduce the MPC replanning frequency, what happens to the robot behaviour?
 \end{enumerate}
 
-\section{Gait Scheduler}
 
-The gait scheduler generates a binary contact state for each foot:
-
-\begin{align*}
-	s_i(t) \in \{0,1\},
-\end{align*}
-
-where \(s_i=1\) denotes stance and \(s_i=0\) denotes swing.
-
-Each gait is described by its cycle duration, duty factor, and phase offsets.
-
-\begin{table}[h]
-	\centering
-	\begin{tabular}{lll}
-		\toprule
-		Gait & Swing pattern & Typical use \\
-		\midrule
-		Crawl & One foot swings at a time & Slow and statically stable walking \\
-		Pace & Left and right lateral pairs alternate & Fast lateral-pair gait \\
-		Trot & Diagonal pairs alternate & Dynamic walking and running \\
-		Bound & Front and hind pairs alternate & Fast locomotion \\
-		\bottomrule
-	\end{tabular}
-\end{table}
-
-\subsection*{Exercises}
-
-\begin{enumerate}[label=\arabic*.]
-	\item Implement a periodic phase variable.
-	\item Generate the contact schedule for crawl, pace, and trot.
-	\item Plot the contact state of each leg over several gait periods.
-	\item Ensure that the gait scheduler, MPC contacts, and swing-leg state are synchronized.
-	\item Change duty factor and gait frequency during simulation.
-\end{enumerate}
-
-\section{Foothold Optimization and Push Recovery}
-
-Foothold optimization modifies the nominal foothold generated by the Raibert rule to improve balance recovery and maintain feasible steps.
-
-A simple objective is:
-
-\begin{align*}
-\min_{\bm{p}_f}
-\quad &
-\left\|
-\bm{p}_f-\bm{p}_f^{\mathrm{nom}}
-\right\|_{\bm{W}}^2
-+
-w_c
-\left\|
-\bm{p}_f-\bm{p}_{\mathrm{capture}}
-\right\|^2,
-\end{align*}
-
-subject to feasible workspace and terrain constraints.
-
-\subsection*{Experiment}
-
-\begin{enumerate}[label=\arabic*.]
-    \item Walk at constant velocity with foothold optimization disabled.
-    \item Apply a push to the robot in MuJoCo (drag the robot with the mouse).
-    \item Record CoM position, velocity error, and planned footholds.
-    \item Enable foothold optimization.
-    \item Repeat the same push and compare the recovery.
-\end{enumerate}
-
-The expected behaviour is a corrective foothold placed in the direction required to recover balance.
-
-\section{Integral Action and Payload Adaptation}
-
-Integral action can compensate for persistent tracking errors caused by unmodelled disturbances, such as an additional payload:
-
-\begin{align*}
-\bm{e}_I(t)
-=
-\int_{0}^{t}
-\left(
-\bm{v}^{\mathrm{des}}-\bm{v}
-\right)
-dt.
-\end{align*}
-
-The integral state can be added to the body-position or velocity controller.
-
-\subsection*{Experiment}
-
-\begin{enumerate}[label=\arabic*.]
-    \item Tune the controller for the nominal robot.
-    \item Add an additional 5kg mass to the robot model in MuJoCo.
-    \item Test walking without integral action.
-    \item Activate the integral term and compare velocity tracking.
-\end{enumerate}
 
 \section{State Estimation}
 
@@ -495,16 +311,16 @@ The robot adapts both body pose and foot touchdown height, improving robustness 
 \bottomrule
 \end{tabular}
 \end{table}
-
-\subsection*{Final Experiment}
-
-\begin{enumerate}[label=\arabic*.]
-    \item Create a rough-terrain scenario in MuJoCo.
-    \item Run the robot with terrain estimation disabled.
-    \item Repeat with terrain estimation enabled.
-    \item Compare base orientation, foot tracking error, contact forces, and velocity tracking.
-    \item Discuss the role of terrain estimation in stability and locomotion robustness.
-\end{enumerate}
+%
+%\subsection*{Final Experiment}
+%
+%\begin{enumerate}[label=\arabic*.]
+%    \item Create a rough-terrain scenario in MuJoCo.
+%    \item Run the robot with terrain estimation disabled.
+%    \item Repeat with terrain estimation enabled.
+%    \item Compare base orientation, foot tracking error, contact forces, and velocity tracking.
+%    \item Discuss the role of terrain estimation in stability and locomotion robustness.
+%\end{enumerate}
 
 %\section{Expected Final Demonstration}
 %

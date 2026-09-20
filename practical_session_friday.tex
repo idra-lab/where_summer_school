@@ -39,33 +39,32 @@
 
 \maketitle
 
-\section{Objectives}
+\section*{Objectives}
 This practical session introduces the main components of a model-based locomotion software stack for a quadruped robot in simulation. 
 There are several blocks/modules  in a locomotion framework, we will do exercises separately on  them and then put all the modules together and experience and do tests with the whole framework.
-The goal is to progressively build, tune, and test the following modules of the framework: inverse kinematics, state estimation, and terrain estimation.
-and a centroidal Model Predictive Control (MPC) that leverages a centroidal model. 
+The goal is to progressively build, tune, and test the following modules of the framework: inverse kinematics, state estimation, terrain estimation 
+and a  Model Predictive Control (MPC) that leverages a centroidal model. 
 
 
-\section{Install the software}
+\section*{Install the software}
 \textbf{First repo}: We encourage you to use a conda environment installation following these \href{https://github.com/iit-DLSLab/Quadruped-PyMPC/tree/feat/lesson_friday/README_install.md}{README}.
 
 \begin{verbatim}
 git clone -b feat/lesson_friday https://github.com/iit-DLSLab/Quadruped-PyMPC.git
 \end{verbatim}
 
-Very important: This clone automatically use the branch \texttt{feat/lesson\_friday}.\\
+\noindent Very important: This clone automatically uses the branch \texttt{feat/lesson\_friday}.\\
 Very important: Every time you open a new terminal, you need to activate the conda environment first, see the README!
 
 
 \vspace{1cm}
 
-\textbf{Second repo}: \href{https://github.com/giulioturrisi/ekf-legged-robot-pytorch}{EKF for Legged Robots}, see it's README for installation instructions. You need to install it in a separate conda environment, see the README!
+\noindent \textbf{Second repo}: \href{https://github.com/giulioturrisi/ekf-legged-robot-pytorch}{EKF for Legged Robots}, see it's README for installation instructions. You need to install it in a separate conda environment, see the README!
 
-\section{Exercise 1: Inverse Kinematics}
+\section*{Exercise 1: Numerical Inverse Kinematics}
 
-Inverse kinematics maps desired swing-foot trajectories into desired joint positions or velocities, to pass them to the lower-level control of the robot.
-
-\subsection{Numerical Inverse Kinematics}
+Inverse kinematics maps desired swing-foot trajectories into desired joint positions or velocities, to pass them to the lower-level PD control of the robot.
+ 
 
 A damped least-squares solution is:
 
@@ -96,48 +95,48 @@ where \(\bm{J}\) is the leg Jacobian, \(\bm{e}\) is the Cartesian error, and \(\
 Hint: Stack all the error and jacobians togheter! 
 
 
-Starting file: \texttt{inverse\_kinematics\_numeric\_mujoco.py}. \\
-You can launch it with \texttt{inverse\_kinematics\_numeric\_mujoco.py}
+Starting file: \verb|Quadruped-PyMPC/inverse_kinematics_numeric_mujoco.py|. 
+
+You can launch its main with  \verb|python3 Quadruped-PyMPC/inverse_kinematics_numeric_mujoco.py|. 
 
 
 \begin{enumerate}[label=\arabic*.]
 	\item Complete the code in the above file.
 	\item Start for a very far foot positions now (see its main): Does IK converge in one step to the right solution?
 	\item What happens if do multiple IK step?
-	\item Tune \(\lambda\) for reach the desired foot positions in less step than possible.
+	\item What happens if you set the desired feet positions close to the singularity (search for comment EXERCISE 1.4 in the main)? Tune \(\lambda\) to converge the desired foot positions in less iteration than possible.
 \end{enumerate}
 
-\section{Exercise 2: Terrain Estimation}
+\section*{Exercise 2: Terrain Estimation}
 
-On uneven terrain, estimate a local terrain plane from the stance-foot positions. The terrain normal can then be used to generate a terrain-aligned desired base orientation.
-
+On uneven terrain, estimate a local terrain plane from the stance-foot positions. The terrain normal can then be used to generate a terrain-aligned desired base orientation. (check slide 12 in \href{https://github.com/idra-lab/where_summer_school/blob/main/slides/monday/A4_lomotion.pdf}{Monday Locomotion}).
 This adaptation helps maintain a suitable leg configuration and improves contact consistency on slopes and uneven ground.
 
 
 \begin{enumerate}[label=\arabic*.]
 
-    \item Run \texttt{python3 simulation.py} and walk over the stairs with the current version of the code.
+    \item Run  \verb|python3 Quadruped-PyMPC/simulation/simulation.py| and walk over the stairs with the current version of the code.
     To do so, type \texttt{ictp} in the terminal and use the
     \texttt{WASD} keys.
 
-    \item Modify the main function of
-    \texttt{terrain\_estimator\_vertical\_fit.py} and check the estimated
+    \item Modify the main function of\\
+	\verb|Quadruped-PyMPC/quadruped_pympc/helpers/terrain_estimator_vertical_fit.py| and check the estimated
     terrain plane once you complete this part:
     \[
-    \texttt{python3 terrain\_estimator\_vertical\_fit.py}
+   	\verb|python3 Quadruped-PyMPC/quadruped_pympc/helpers/terrain_estimator_vertical_fit.py|
     \]
 
     \item Run \texttt{python3 simulation.py} again and walk over the stairs.
     To do so, type \texttt{ictp} in the terminal and use the
     \texttt{WASD} keys.
 
-    \item Introduce and tune a filter to avoid abrupt changes in the
+    \item Introduce and tune a first order filter to avoid abrupt changes in the
     desired pitch and roll.
 
 \end{enumerate}
 
 
-\section{Exercise 3: MPC Tuning}
+\section*{Exercise 3: MPC Tuning}
 
 The MPC should track desired CoM motion, body orientation, velocity, and contact forces. A typical cost function is:
 
@@ -163,19 +162,20 @@ Important parameters are:
 	\item Contact schedule and selected gait;
 	\item CoM position and velocity weights;
 	\item Base orientation and angular velocity weights;
-	\item Contact-force regularization - we ask the GRF to be at least equal to the one needed to compensate gravity, e.g. not making the robot collaps. For example, for Go2 that weights 15kg, the summ of the GRFs in the z direction is at least 15*9.81 Nm. If the robot has 4 foot in the ground, each foot should at least give 15*9.81/4 Nm. In the x-y direction we ask for 0, because we don't know them;
+	\item Contact-force regularization - we ask the GRF to be at least equal to the one needed to compensate gravity, e.g. not making the robot collapse. For example, for Go2 that weights 15kg, the sum of the GRFs in the z direction is at least 15*9.81 Nm. If the robot has 4 foot on the ground, each foot should at least give 15*9.81/4 Nm. In the x-y direction we regularize to 0, because we don't know them;
 \end{itemize}
 
 
 \begin{enumerate}[label=\arabic*.]
-	\item What happens if you set W = 1000, 1000, 0.001 at Grfs weights? or W = 0.001, 0.001, 1000? Modify the file \texttt{centroidal\_nmpc\_nominal.py}, line 507, and run \texttt{python3 simulation.py}
-	\item reduce to 1 the weight on pitch (base orientation weight) and try to climb on stairs.
-	\item Change the prediction horizon $N$ and evaluate stability, tracking, and computational time. Evaluate especially the performances for the crawl gait. Modify the file \texttt{config.py}, line 92-215, and run \texttt{python3 simulation.py}.
-	\item Increase the MPC loop duration $dT_{mpc}$ from 0.002 up 0.2 and evaluate the impact on walking performances and computation time. Modify the file \texttt{config.py}, line 93, and run \texttt{python3 simulation.py}.
+	\item What happens if you set  W = 1000, 1000, 0.001 at Grfs weights? or W = 0.001, 0.001, 1000? Modify the file \texttt{centroidal\_nmpc\_nominal.py}, (search for comment
+	EXERCISE 3.1), and run \verb|python3 Quadruped-PyMPC/simulation/simulation.py|.
+	\item Reduce to 1 the weight on pitch (base orientation weight) and try to climb on stairs.
+	\item Change the prediction horizon $N$ and evaluate stability, tracking, and computational time. Evaluate especially the performances for the crawl gait. Modify the file \texttt{config.py}, line 92-215, and run and run \verb|python3 Quadruped-PyMPC/simulation/simulation.py|.
+	\item Gradually increase the MPC loop duration $dT_{mpc}$ from 0.002 up 0.2 and evaluate the impact on walking performances and computation time. Modify the file \texttt{config.py}, line 93, and run \verb|python3 Quadruped-PyMPC/simulation/simulation.py|.
 	\item what is the best tradeoff between $dT_{mpc}$ and MPC horizon $N$ for the crawl? What is the drawback of having a longer horizon in a real setting?
-	\item Having an horizon allows the MPC to run at much lower frequencies than a reactive controller, what is the minimum frequency that the MPC can still stabilize the system? Modify the file \texttt{config.py}, N, dt, and run \texttt{python3 ros2\/run\_simulator.py} and in another terminal \texttt{python3 ros2\/run\_controller.py}.
-	\item Compare the behaviour o a trot/crawl for different gait frequencies (from 1.4 Hz up to 2.4Hz ) and the the different robustness to disturbances  and the maximum velocity that you can achieve. What is the drawback of 
-	getting to high speed? Modify the file \texttt{config.py}, line 215-2016, and run \texttt{python3 simulation.py}.
+	\item Having an horizon allows the MPC to run at much lower frequencies than a reactive controller, what is the minimum frequency that the MPC can still stabilize the system? Modify the file \texttt{config.py}, N, dt, and run  \verb|python3 Quadruped-PyMPC/ros2/run_simulator.py| and in another terminal \verb|python3 Quadruped-PyMPC/ros2/run_controller.py|
+	\item Compare the behaviour of a trot/crawl for different gait frequencies (from 1.4 Hz up to 2.4Hz) and check the different levels of robustness to disturbances  and what the maximum velocity that you can achieve. 
+	What is the drawback of  getting to high speed? Modify the file \texttt{config.py}, line 215-216, and run \verb|python3 Quadruped-PyMPC/simulation/simulation.py|.
 \end{enumerate}
 
 
@@ -192,14 +192,14 @@ Replace the perfect simulated state with an estimated state. The estimator  comb
     \item Optional ground-truth state only for debugging.
 \end{itemize}
 
-An Extended Kalman Filter can estimate base orientation, position, velocity, and IMU biases.
+An Extended Kalman Filter can estimate base orientation, position, velocity
 
 For this, you need to run from Quadruped-PyMPC (first repo):
 
 \[
 \begin{array}{ll}
-\texttt{python3 run\_simulator.py} & \text{(TERMINAL 1)} \\
-\texttt{python3 run\_controller.py} & \text{(TERMINAL 2)}
+\verb|python3 Quadruped-PyMPC/ros2/run_simulator.py| & \text{(TERMINAL 1)} \\
+\verb|python3 Quadruped-PyMPC/ros2/run_controller.py|  & \text{(TERMINAL 2)}
 \end{array}
 \]
 
@@ -209,9 +209,9 @@ and from the repo iekf-legged-robot-pytorch (second repo):
 
 \[
 \begin{array}{ll}
-\texttt{python3 run\_state\_estimator\_ros2.py} & \text{(TERMINAL 3)} \\
-\texttt{source ros2\_ws/install/setup.bash} & \text{(TERMINAL 4)} \\
-\texttt{ros2 run plotjuggler plotjuggler} & \text{(TERMINAL 4)}
+	\verb|python3  ekf-legged-robot-pytorch/run_state_estimator_ros2.py| & \text{(TERMINAL 3)} \\
+    \verb|source ros2\_ws/install/setup.bash|   & \text{(TERMINAL 4)} \\
+    \verb|ros2 run plotjuggler plotjuggler| & \text{(TERMINAL 4)}
 \end{array}
 \]
 
@@ -221,11 +221,11 @@ each of them with their own conda env!!!
 
 
 \begin{enumerate}[label=\arabic*.]
-    \item Compare estimated and ground-truth base velocity.
-    \item Chance the belief on the filter inputs changing the different noise. If you add bias on accelerometers what happens to the estimation? Modify \texttt{python3 run\_simulator.py} line 202.
-    Change to noise in the estimation to improve this (Modify config.py inside iekf-legged-robot-pytorch). 
-    \item Now remove the offset try to add gaussian noise to the joint velocities and increase the covariance to mitigate that. 
-    \item (optional) Study the effect of incorrect contact detection. Change the minimum force threshold for contact detection and see how estimator performances are degrading. (Modify config.py inside iekf-legged-robot-pytorch). 
+    \item Compare estimated and ground-truth base linear velocity: \\ topics: \verb|base_state_debug|, \verb|ekf_base_state_debug|.
+    \item Chance the belief on the filter inputs changing the different noise. If you add bias on accelerometers what happens to the estimation? \\Modify \verb|python3 Quadruped-PyMPC/ros2/run_simulator.py|  line 202.
+    Change the noise in the filter settings to improve the estimation (Modify config.py inside iekf-legged-robot-pytorch). 
+    \item Now remove the offset and try to add gaussian noise to the joint velocities and increase the appropriate filter covariance to mitigate that. 
+    \item   Study the effect of incorrect contact detection. Change the minimum force threshold for contact detection and see how estimator performances are degrading in position estimate, which direction is the most affected. (Modify \verb|iekf-legged-robot-pytorch/config.py|). 
 \end{enumerate}
 
 \end{document}

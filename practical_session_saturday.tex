@@ -39,16 +39,150 @@
 
 \maketitle
 
-\section{Objectives}
 
-
-This practical session introduces the main components of a model-based locomotion software stack for a quadruped robot with a real robot! 
+\section*{Objectives}
+This practical session introduces the main components of a model-based locomotion software stack for a quadruped robot in simulation. 
 There are several blocks/modules  in a locomotion framework, we will do exercises separately on  them and then put all the modules together and experience and do tests with the whole framework.
-The goal is to progressively tune, and test the missing models that  combines swing trajectory tracker, stance controller, gait scheduling,  foothold generation and payload adaptation. The different modules should be tested in simulation before running on the real robot. There is a class for each component. 
+The goal is to progressively build, tune, and test the following modules of the framework: Swing controller, Stance controller, Foothold generator, Gait scheduler. 
 
-In the folder \textit{exercises}  you can find different  exercises. 
 
-\section{Gait Scheduler}
+\section*{Install the software}
+\textbf{First repo}: 
+
+\begin{verbatim}
+git stash
+git fetch origin
+git checkout origin/feat/lesson_saturday
+\end{verbatim}
+
+\noindent Very important: We now use the branch \texttt{feat/lesson\_saturday}.\\
+Very important: Every time you open a new terminal, you need to activate the conda environment first, see the README!
+
+
+
+\section{Exercise 1: Swing-Foot Trajectory Generator and Control}
+
+The swing-foot trajectory must move the foot smoothly from lift-off to the desired touchdown point. It should provide sufficient clearance above the terrain and have low touchdown velocity.
+
+For a cubic trajectory:
+
+\begin{align*}
+p(t) = a_0 + a_1t + a_2t^2 + a_3t^3.
+\end{align*}
+
+Choose the coefficients to satisfy initial and final position and velocity boundary conditions.
+The file to modify is \verb|Quadruped-PyMPC/quadruped_pympc/helpers/cubic_swing_trajectory.py| 
+Startin and final position of the spline are already given in the main of this file, that you can launch with
+ \verb|python3 Quadruped-PyMPC/quadruped_pympc/helpers/cubic_swing_trajectory.py| 
+
+Hint: search for EXERCISE 1.1-1.4 in the file and implement between the dotted lines.
+
+\begin{enumerate}[label=\arabic*.]
+    \item Generate horizontal motion from lift-off (initial point) to touchdown (final point).
+    \item Add a vertical swing-height profile - the robot should not slide the feet on the terrain!
+    \item Compare position, velocity, and acceleration continuity.
+    \item Verify that touchdown velocity is close to zero. Real robot can suffer from discontinuities!
+\end{enumerate}
+
+
+
+For tracking the trajectory, a control law is needed (1):
+
+\begin{align*}
+\bm{\tau}_{sw,i}  =
+\bm{J}_i^T \left[ \bm{K}_p
+\left(
+\bm{p}^{\mathrm{ref}}-\bm{p}
+\right)
++
+\bm{K}_d
+\left(
+\dot{\bm{p}}^{\mathrm{ref}}-\dot{\bm{p}}
+\right)\right].
+\end{align*}
+ 
+
+A better control law can be obtained by compensating the gravitational effects and coriolis (2).  
+
+\begin{align*}
+\bm{\tau}_{sw,i}  =
+\bm{J}_i^T \left[ \bm{K}_p
+\left(
+\bm{p}^{\mathrm{ref}}-\bm{p}
+\right)
++
+\bm{K}_d
+\left(
+\dot{\bm{p}}^{\mathrm{ref}}-\dot{\bm{p}}
+\right)\right] + h(\bm{q}, \dot{\bm{q}}).
+\end{align*}
+
+
+The file to modify is \verb|Quadruped-PyMPC/quadruped_pympc/helpers/swing_trajectory_controller.py|.
+Run its main with \verb|python3 Quadruped-PyMPC/quadruped_pympc/helpers/swing_trajectory_controller.py| 
+HINT: search for EXERCISE 1.5-1.7 in the file and implement between the dotted lines.
+\begin{enumerate}[label=\arabic*.]
+    \item Implement controller (1), and check the tracking of the spline trajectory; Tune the gains \(K_p\) and \(K_d\) to improve tracking - range [200-500 Kp], [5-20 Kd].
+    \item Implement controller (2), and check the tracking of the spline trajectory; Tune the gains \(K_p\) and \(K_d\) to improve tracking - range [200-500 Kp], [5-20 Kd].
+    \item These are the controllers you will use on the real robot, try to obtain a smooth action!
+\end{enumerate}
+KP and KD can be tuned in The file to modify is \verb|Quadruped-PyMPC/quadruped_pympc/config.py|, lines 202-203.
+
+
+\section{Exercise 2: Stance Controller}
+
+During stance, the desired contact force computed by the MPC is converted into joint torques through the foot Jacobian:
+
+\begin{align*}
+\bm{\tau}_{st,i} = -\bm{J}_i^T \bm{f}_i^{\mathrm{des}}.
+\end{align*}
+
+The Jacobian must be consistent with the frame in which the contact force is expressed.
+
+Modify \verb|Quadruped-PyMPC/quadruped_pympc/interfaces/wb_interface.py|, lines 372-377, search for "EXERCISE 2.1"
+\begin{enumerate}[label=\arabic*.]
+    \item Extract the foot Jacobian from the robot model.
+    \item Take the GRF from the MPC.
+    \item Compute the joint torques using the Jacobian and the desired contact force.
+\end{enumerate}
+
+% \section{Raibert-Style Foothold Generator}
+% 
+% At lift-off, the desired touchdown position can be computed from the nominal hip location, desired velocity, and velocity tracking error:
+% 
+% \begin{align*}
+% \bm{p}_{f,i}^{\mathrm{des}} =
+% \bm{p}_{\mathrm{hip},i}
+% +
+% \bm{p}_{i}^{\mathrm{nom}}
+% +
+% \frac{T_{\mathrm{st}}}{2}\bm{v}^{\mathrm{des}}
+% +
+% k_v
+% \left(
+% \bm{v} - \bm{v}^{\mathrm{des}}
+% \right),
+% \end{align*}
+% 
+% where \(T_{\mathrm{st}}\) is the stance duration and \(k_v\) is the velocity-feedback gain.
+% 
+% 
+% \subsection*{Exercises}
+% 
+% 
+% 
+% \begin{enumerate}[label=\arabic*.]
+%     \item Implement the nominal foothold generator.
+%     \item Command forward, lateral, and turning motion.
+%     \item Visualize the planned touchdown locations.
+%     \item Tune \(k_v\) and observe its influence on velocity recovery.
+%     \item Add reachable-workspace bounds around the hip.
+% \end{enumerate}
+
+
+
+
+\section*{Exercise 3: Gait Scheduler}
 
 The gait scheduler generates a binary contact state for each foot:
 
@@ -74,179 +208,51 @@ Each gait is described by its cycle duration, duty factor, and phase offsets.
 	\end{tabular}
 \end{table}
 
-\subsection*{Exercises}
 
+The file to modify is \verb|Quadruped-PyMPC/quadruped_pympc/helpers/periodic_gait_generator.py|
+You can launch its main with \verb|python3 Quadruped-PyMPC/quadruped_pympc/helpers/periodic_gait_generator.py|
+You can select the gait in \verb|Quadruped-PyMPC/quadruped_pympc/config.py| in 217. Remember to change duty factor and step frequency in the config file as well there.
 \begin{enumerate}[label=\arabic*.]
-	\item Implement a periodic phase variable.
-	\item Generate the contact schedule for crawl,  and trot.
-	\item Plot the contact state of each leg over several gait periods.
-	\item Ensure that the gait scheduler, MPC contacts, and swing-leg state are synchronized.
-	\item Change duty factor and gait frequency during simulation.
-\end{enumerate}
-
-\section{Foothold Optimization and Push Recovery}
-
-Foothold optimization modifies the nominal foothold generated by the Raibert rule to improve balance recovery and maintain feasible steps.
-
-A simple objective is:
-
-\begin{align*}
-	\min_{\bm{p}_f}
-	\quad &
-	\left\|
-	\bm{p}_f-\bm{p}_f^{\mathrm{nom}}
-	\right\|_{\bm{W}}^2
-	+
-	w_c
-	\left\|
-	\bm{p}_f-\bm{p}_{\mathrm{capture}}
-	\right\|^2,
-\end{align*}
-
-subject to feasible workspace and terrain constraints.
-
-\subsection*{Experiment}
-
-\begin{enumerate}[label=\arabic*.]
-	\item Walk at constant velocity with foothold optimization disabled.
-	\item Apply a push to the robot in MuJoCo (drag the robot with the mouse).
-	\item Record CoM position, velocity error, and planned footholds.
-	\item Enable foothold optimization.
-	\item Repeat the same push and compare the recovery.
-\end{enumerate}
-
-The expected behaviour is a corrective foothold placed in the direction required to recover balance.
-
-
-\section{Raibert-Style Foothold Generator}
-
-At lift-off, the desired touchdown position can be computed from the nominal hip location, desired velocity, and velocity tracking error:
-
-\begin{align*}
-\bm{p}_{f,i}^{\mathrm{des}} =
-\bm{p}_{\mathrm{hip},i}
-+
-\bm{p}_{i}^{\mathrm{nom}}
-+
-\frac{T_{\mathrm{st}}}{2}\bm{v}^{\mathrm{des}}
-+
-k_v
-\left(
-\bm{v} - \bm{v}^{\mathrm{des}}
-\right),
-\end{align*}
-
-where \(T_{\mathrm{st}}\) is the stance duration and \(k_v\) is the velocity-feedback gain.
-
-
-\subsection*{Exercises}
-
-
-
-\begin{enumerate}[label=\arabic*.]
-    \item Implement the nominal foothold generator.
-    \item Command forward, lateral, and turning motion.
-    \item Visualize the planned touchdown locations.
-    \item Tune \(k_v\) and observe its influence on velocity recovery.
-    \item Add reachable-workspace bounds around the hip.
-\end{enumerate}
-
-\section{Swing-Foot Trajectory Generator}
-
-The swing-foot trajectory must move the foot smoothly from lift-off to the desired touchdown point. It should provide sufficient clearance above the terrain and have low touchdown velocity.
-
-A Cartesian feedback-linearization law is:
-
-\begin{align*}
-\ddot{\bm{p}}^{\mathrm{cmd}} =
-\ddot{\bm{p}}^{\mathrm{ref}}
-+
-\bm{K}_p
-\left(
-\bm{p}^{\mathrm{ref}}-\bm{p}
-\right)
-+
-\bm{K}_d
-\left(
-\dot{\bm{p}}^{\mathrm{ref}}-\dot{\bm{p}}
-\right).
-\end{align*}
- 
-
-Check the files \verb|explicit_swing_trajectory_generator.py| and \verb|scipy_swing_trajectory_generator.py| to
-implement and compare:
-
-\begin{enumerate}[label=\arabic*.]
-    \item A Cartesian feedback-linearization controller;
-    \item A cubic polynomial trajectory implemented numerically;
-    \item A cubic spline generated with \texttt{scipy.interpolate}.
-\end{enumerate}
-
-For a cubic trajectory:
-
-\begin{align*}
-p(t) = a_0 + a_1t + a_2t^2 + a_3t^3.
-\end{align*}
-
-Choose the coefficients to satisfy initial and final position and velocity boundary conditions.
-
-\subsection*{Exercises}
-
-\begin{enumerate}[label=\arabic*.]
-    \item Generate horizontal motion from lift-off to touchdown.
-    \item Add a vertical swing-height profile.
-    \item Compare position, velocity, and acceleration continuity.
-    \item Change the swing height and test obstacle clearance.
-    \item Verify that touchdown velocity is close to zero.
-\end{enumerate}
-
-\section{Stance Controller}
-
-During stance, the desired contact force computed by the MPC is converted into joint torques through the foot Jacobian:
-
-\begin{align*}
-\bm{\tau}_i = \bm{J}_i^T \bm{f}_i^{\mathrm{des}}.
-\end{align*}
-
-The Jacobian must be consistent with the frame in which the contact force is expressed.
-
-\subsection*{Exercises}
-
-Check the file \verb|inverse_kinematics/inverse_kinematics_numeric_mujoco.py|
-
-\begin{enumerate}[label=\arabic*.]
-    \item Extract the foot Jacobian from the robot model.
-    \item Apply a desired vertical force to one leg.
-    \item Check the resulting joint torques.
-    \item Compare desired and measured ground-reaction forces.
-    \item Verify force direction and coordinate-frame conventions.
+	\item Generate the contact schedule for the crawl.
+	\item How many different types of crawl can you generate?
+	\item Change duty factor and gait frequency during simulation to find a stable gait.
 \end{enumerate}
 
 
-\section{Integral Action and Payload Adaptation}
 
-Integral action can compensate for persistent tracking errors caused by unmodelled disturbances, such as an additional payload:
+\section*{Exercise 4: Real robot}
 
-\begin{align*}
-\bm{e}_I(t)
-=
-\int_{0}^{t}
-\left(
-\bm{v}^{\mathrm{des}}-\bm{v}
-\right)
-dt.
-\end{align*}
+With all you changes done in these exercises, try to run the simulation:
+\verb|python3 Quadruped-PyMPC/simulation/simulation.py|
 
-The integral state can be added to the body-position or velocity controller.
+If it works, congrats, we can try it on the real robot!
 
-\subsection*{Experiment}
 
-\begin{enumerate}[label=\arabic*.]
-    \item Tune the controller for the nominal robot.
-    \item Add an additional 5kg mass to the robot model in MuJoCo.
-    \item Test walking without integral action.
-    \item Activate the integral term and compare velocity tracking.
-\end{enumerate}
+
+% \section{Integral Action and Payload Adaptation}
+% 
+% Integral action can compensate for persistent tracking errors caused by unmodelled disturbances, such as an additional payload:
+% 
+% \begin{align*}
+% \bm{e}_I(t)
+% =
+% \int_{0}^{t}
+% \left(
+% \bm{v}^{\mathrm{des}}-\bm{v}
+% \right)
+% dt.
+% \end{align*}
+% 
+% The integral state can be added to the body-position or velocity controller.
+% 
+% \subsection*{Experiment}
+% 
+% \begin{enumerate}[label=\arabic*.]
+%     \item Tune the controller for the nominal robot.
+%     \item Add an additional 5kg mass to the robot model in MuJoCo.
+%     \item Test walking without integral action.
+%     \item Activate the integral term and compare velocity tracking.
+% \end{enumerate}
 
 %
 %\subsection*{Final Experiment}

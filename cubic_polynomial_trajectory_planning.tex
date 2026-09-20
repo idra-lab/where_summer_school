@@ -1,0 +1,177 @@
+\documentclass[11pt,a4paper]{article}
+
+\usepackage[margin=2.5cm]{geometry}
+\usepackage{amsmath,amssymb,bm}
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+
+\title{Cubic Polynomial Trajectory Planning}
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\section{Cubic trajectory}
+
+Consider a cubic polynomial trajectory defined over the time interval
+$t\in[t_s,t_f]$:
+\begin{equation}
+    q(t)=a_3t^3+a_2t^2+a_1t+a_0.
+\end{equation}
+Its velocity and acceleration are
+\begin{align}
+    \dot q(t) &= 3a_3t^2+2a_2t+a_1,\\
+    \ddot q(t) &= 6a_3t+2a_2.
+\end{align}
+
+The four polynomial coefficients are determined by prescribing the initial
+and final positions and velocities:
+\begin{align}
+    q(t_s) &= q_s, & \dot q(t_s) &= \dot q_s,\\
+    q(t_f) &= q_f, & \dot q(t_f) &= \dot q_f.
+\end{align}
+
+Substitution into the cubic polynomial gives the four boundary-condition
+equations
+\begin{align}
+    a_3t_s^3+a_2t_s^2+a_1t_s+a_0 &= q_s,\\
+    a_3t_f^3+a_2t_f^2+a_1t_f+a_0 &= q_f,\\
+    3a_3t_s^2+2a_2t_s+a_1 &= \dot q_s,\\
+    3a_3t_f^2+2a_2t_f+a_1 &= \dot q_f.
+\end{align}
+
+In matrix form, these equations become
+\begin{equation}
+\underbrace{\begin{bmatrix}
+    t_s^3  & t_s^2 & t_s & 1\\
+    t_f^3  & t_f^2 & t_f & 1\\
+    3t_s^2 & 2t_s  & 1   & 0\\
+    3t_f^2 & 2t_f  & 1   & 0
+\end{bmatrix}}_{\bm{A}}
+\underbrace{\begin{bmatrix}
+    a_3\\a_2\\a_1\\a_0
+\end{bmatrix}}_{\bm{a}}
+=
+\underbrace{\begin{bmatrix}
+    q_s\\q_f\\\dot q_s\\\dot q_f
+\end{bmatrix}}_{\bm{b}}.
+\end{equation}
+Therefore, the polynomial coefficients can be computed as
+\begin{equation}
+    \boxed{\bm{a}=\bm{A}^{-1}\bm{b}}.
+\end{equation}
+In numerical implementations, the linear system $\bm{A}\bm{a}=\bm{b}$
+should normally be solved directly instead of explicitly forming
+$\bm{A}^{-1}$.
+
+\section{Solution using shifted time}
+
+The closed-form solution is simpler if time is measured from the beginning
+of the motion. Define
+\begin{equation}
+    \tau=t-t_s,
+    \qquad
+    T=t_f-t_s,
+\end{equation}
+so that $\tau\in[0,T]$. Write the trajectory as
+\begin{equation}
+    q(\tau)=a_0+a_1\tau+a_2\tau^2+a_3\tau^3.
+\end{equation}
+The velocity and acceleration are
+\begin{align}
+    \dot q(\tau) &= a_1+2a_2\tau+3a_3\tau^2,\\
+    \ddot q(\tau) &= 2a_2+6a_3\tau.
+\end{align}
+
+The boundary conditions now read
+\begin{align}
+    q(0) &= q_s, & \dot q(0) &= \dot q_s,\\
+    q(T) &= q_f, & \dot q(T) &= \dot q_f.
+\end{align}
+After substitution, one obtains
+\begin{align}
+    a_0 &= q_s,\\
+    a_1 &= \dot q_s,\\
+    a_0+a_1T+a_2T^2+a_3T^3 &= q_f,\\
+    a_1+2a_2T+3a_3T^2 &= \dot q_f.
+\end{align}
+
+Equivalently,
+\begin{equation}
+\begin{bmatrix}
+    1 & 0 & 0   & 0\\
+    0 & 1 & 0   & 0\\
+    1 & T & T^2 & T^3\\
+    0 & 1 & 2T  & 3T^2
+\end{bmatrix}
+\begin{bmatrix}
+    a_0\\a_1\\a_2\\a_3
+\end{bmatrix}
+=
+\begin{bmatrix}
+    q_s\\\dot q_s\\q_f\\\dot q_f
+\end{bmatrix}.
+\end{equation}
+
+Solving this system gives
+\begin{align}
+    a_0 &= q_s,\\
+    a_1 &= \dot q_s,\\
+    a_2 &= \frac{3(q_f-q_s)}{T^2}
+           -\frac{2\dot q_s+\dot q_f}{T},\\
+    a_3 &= -\frac{2(q_f-q_s)}{T^3}
+           +\frac{\dot q_s+\dot q_f}{T^2}.
+\end{align}
+
+Consequently, the complete trajectory is
+\begin{equation}
+\boxed{
+\begin{aligned}
+q(t)={}&q_s+\dot q_s(t-t_s)\\
+&+\left[
+\frac{3(q_f-q_s)}{T^2}
+-\frac{2\dot q_s+\dot q_f}{T}
+\right](t-t_s)^2\\
+&+\left[
+-\frac{2(q_f-q_s)}{T^3}
++\frac{\dot q_s+\dot q_f}{T^2}
+\right](t-t_s)^3,
+\end{aligned}}
+\qquad T=t_f-t_s.
+\end{equation}
+
+\section{Zero initial and final velocities}
+
+If the trajectory must start and finish at rest,
+\begin{equation}
+    \dot q_s=\dot q_f=0,
+\end{equation}
+the coefficients reduce to
+\begin{align}
+    a_0 &= q_s,
+    &a_1 &= 0,
+    &a_2 &= \frac{3(q_f-q_s)}{T^2},
+    &a_3 &= -\frac{2(q_f-q_s)}{T^3}.
+\end{align}
+The corresponding trajectory is
+\begin{equation}
+\boxed{
+q(t)=q_s
++3(q_f-q_s)\left(\frac{t-t_s}{T}\right)^2
+-2(q_f-q_s)\left(\frac{t-t_s}{T}\right)^3
+}.
+\end{equation}
+
+Introducing the normalized time
+\begin{equation}
+    s=\frac{t-t_s}{T},
+    \qquad s\in[0,1],
+\end{equation}
+the same result can be written compactly as
+\begin{equation}
+    \boxed{q(s)=q_s+(q_f-q_s)(3s^2-2s^3)}.
+\end{equation}
+
+\end{document}

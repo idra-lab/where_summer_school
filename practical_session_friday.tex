@@ -44,153 +44,91 @@ This practical session introduces the main components of a model-based locomotio
 There are several blocks/modules  in a locomotion framework, we will do exercises separately on  them and then put all the modules together and experience and do tests with the whole framework.
 The goal is to progressively build, tune, and test the following modules of the framework: inverse kinematics, state estimation, and terrain estimation.
 and a centroidal Model Predictive Control (MPC) that leverages a centroidal model. 
-The experiments can be performed in MuJoCo using the provided robot model and simulation interface. Gradient-based MPC: It uses [CasADI](https://web.casadi.org/) to define the model and [acados](https://github.com/acados/acados) to solve the optimal control problem. Sampling-based MPC: [jax](https://github.com/google/jax) for both. The simulation environment is based on [Mujoco](https://mujoco.org/).
+
 
 \section{Install the software}
-We encourage you to use a conda environment installation following these \href{https://github.com/iit-DLSLab/Quadruped-PyMPC/blob/main/README_install.md}{README installation instructions}
-In the folder \textit{exercises}  you can find different  exercises. 
+First repo: We encourage you to use a conda environment installation following these \href{https://github.com/iit-DLSLab/Quadruped-PyMPC/blob/main/README_install.md}{README installation instructions}
+Every time you open a new terminal, you need to activate the conda environment first, see the README!
 
-\section{Centroidal Model in CasADi}
+Second repo: \href{https://github.com/giulioturrisi/ekf-legged-robot-pytorch}{EKF for Legged Robots}
 
-The centroidal dynamics describe the evolution of the robot center of mass (CoM) and angular momentum under the action of contact forces. For a robot of mass \(m\), CoM position \(\bm{c}\), and contact forces \(\bm{f}_i\), the translational dynamics are:
+\section{Exercise 1: Inverse Kinematics}
 
-\begin{align*}
-m\ddot{\bm{c}} &= \sum_{i=1}^{n_c} \bm{f}_i + m\bm{g}.
-\end{align*}
-
-The angular momentum dynamics about the CoM are:
-
-\begin{align*}
-\dot{\bm{L}} &=
-\sum_{i=1}^{n_c}
-(\bm{p}_i-\bm{c}) \times \bm{f}_i,
-\end{align*}
-
-where \(\bm{p}_i\) is the position of the \(i\)-th contact point.
-
-A possible state is:
-
-\begin{align*}
-\bm{x} =
-\begin{bmatrix}
-\bm{c} &
-\dot{\bm{c}} &
-\bm{\theta} &
-\bm{\omega}
-\end{bmatrix}^{T},
-\end{align*}
-
-while the MPC input contains the contact forces:
-
-\begin{align*}
-\bm{u} =
-\begin{bmatrix}
-\bm{f}_1 &
-\bm{f}_2 &
-\bm{f}_3 &
-\bm{f}_4
-\end{bmatrix}^{T}.
-\end{align*}
-
-\subsection*{Exercise}
-
-\begin{enumerate}[label=\arabic*.]
-    \item Implement the continuous centroidal dynamics in CasADi.
-    %\item Discretize the model using forward Euler    
-    %\item Add unilateral-contact and friction constraints with $\mu = 0.8$.
-    %\item Compare the centroidal prediction with the simulated CoM evolution in MuJoCo.
-\end{enumerate}
-%
-%For each active contact:
-%
-%\begin{align*}
-%f_{z,i} &\geq 0, \\
-%|f_{x,i}| &\leq \mu f_{z,i}, \\
-%|f_{y,i}| &\leq \mu f_{z,i}.
-%\end{align*}
-
-
-
-\section{Inverse Kinematics}
-
-Inverse kinematics maps desired swing-foot trajectories into desired joint positions or velocities.
+Inverse kinematics maps desired swing-foot trajectories into desired joint positions or velocities, to pass them to the lower-level control of the robot.
 
 \subsection{Numerical Inverse Kinematics}
 
 A damped least-squares solution is:
 
 \begin{align*}
-\dot{\bm{q}} =
-\bm{J}^{T}
+\Delta \bm{q}
+=
 \left(
-\bm{J}\bm{J}^{T}+\lambda^2\bm{I}
+\bm{J}^{T}\bm{J}
++
+\lambda^2\bm{I}
 \right)^{-1}
-\dot{\bm{p}}^{\mathrm{des}}.
+\bm{J}^{T}
+\bm{e}.
 \end{align*}
 
-The joint reference can then be obtained by numerical integration:
+where \(\bm{J}\) is the leg Jacobian, \(\bm{e}\) is the Cartesian error, and \(\lambda\) is a damping factor. The joint reference can then be updated as:
+
 
 \begin{align*}
 \bm{q}_{k+1}^{\mathrm{des}}
 =
 \bm{q}_k^{\mathrm{des}}
 +
-\dot{\bm{q}}^{\mathrm{des}} \Delta t.
+\Delta \bm{q} \Delta t.
 \end{align*}
 
-%\subsection{QP-Based Inverse Kinematics}
-%
-%A QP formulation is:
-%
-%\begin{align*}
-%\min_{\dot{\bm{q}}}
-%\quad &
-%\left\|
-%\bm{J}\dot{\bm{q}}-\dot{\bm{p}}^{\mathrm{des}}
-%\right\|^2
-%+
-%\lambda
-%\left\|
-%\dot{\bm{q}}
-%\right\|^2,
-%\end{align*}
-%
-%subject to joint limits and velocity bounds.
-%
-%\subsection*{Exercises}
-%
-%\begin{enumerate}[label=\arabic*.]
-%    \item Implement numerical IK for one leg.
-%    \item Add joint limits and damping near singularities.
-%    \item Implement or use a QP-based IK solver.
-%    \item Compare Cartesian tracking errors for the two methods.
-%    \item Use the resulting joint references during swing.
-%\end{enumerate}
+
+Hint: Stack all the error and jacobians togheter! 
 
 
-\section{Terrain Estimation}
+Starting file: \texttt{inverse\_kinematics\_numeric\_mujoco.py}. \\
+You can launch it with \texttt{inverse\_kinematics\_numeric\_mujoco.py}
+
+
+\begin{enumerate}[label=\arabic*.]
+	\item Complete the code in the above file.
+	\item Start for a very far foot positions now (see its main): Does IK converge in one step to the right solution?
+	\item What happens if do multiple IK step?
+	\item Tune \(\lambda\) for reach the desired foot positions in less step than possible.
+\end{enumerate}
+
+\section{Exercise 2: Terrain Estimation}
 
 On uneven terrain, estimate a local terrain plane from the stance-foot positions. The terrain normal can then be used to generate a terrain-aligned desired base orientation.
 
 This adaptation helps maintain a suitable leg configuration and improves contact consistency on slopes and uneven ground.
 
-\begin{table}[h]
-	\centering
-	\begin{tabular}{p{0.32\textwidth}p{0.56\textwidth}}
-		\toprule
-		Configuration & Expected behaviour \\
-		\midrule
-		Fixed horizontal body reference &
-		The body remains aligned with the world frame; leg workspace and contact quality may degrade on slopes. \\[0.2cm]
-		Terrain-aligned body reference &
-		The desired body roll and pitch follow the estimated local terrain plane. \\[0.2cm]
-		Terrain-aware orientation and footholds &
-		The robot adapts both body pose and foot touchdown height, improving robustness on rough terrain. \\
-		\bottomrule
-	\end{tabular}
-\end{table}
 
-\section{MPC Tuning}
+\begin{enumerate}[label=\arabic*.]
+
+    \item Run \texttt{python3 simulation.py} and walk over the stairs with the current version of the code.
+    To do so, type \texttt{ictp} in the terminal and use the
+    \texttt{WASD} keys.
+
+    \item Modify the main function of
+    \texttt{terrain\_estimator\_vertical\_fit.py} and check the estimated
+    terrain plane once you complete this part:
+    \[
+    \texttt{python3 terrain\_estimator\_vertical\_fit.py}
+    \]
+
+    \item Run \texttt{python3 simulation.py} again and walk over the stairs.
+    To do so, type \texttt{ictp} in the terminal and use the
+    \texttt{WASD} keys.
+
+    \item Introduce and tune a filter to avoid abrupt changes in the
+    desired pitch and roll.
+
+\end{enumerate}
+
+
+\section{Exercise 3: MPC Tuning}
 
 The MPC should track desired CoM motion, body orientation, velocity, and contact forces. A typical cost function is:
 
@@ -216,36 +154,26 @@ Important parameters are:
 	\item Contact schedule and selected gait;
 	\item CoM position and velocity weights;
 	\item Base orientation and angular velocity weights;
-	\item Contact-force regularization and force-rate regularization;
-	\item Friction coefficient and force limits.
+	\item Contact-force regularization - we ask the GRF to be at least equal to the one needed to compensate gravity, e.g. not making the robot collaps. For example, for Go2 that weights 15kg, the summ of the GRFs in the z direction is at least 15*9.81 Nm. If the robot has 4 foot in the ground, each foot should at least give 15*9.81/4 Nm. In the x-y direction we ask for 0, because we don't know them;
 \end{itemize}
 
-\subsection*{Exercises}
-To have the possibility to launch plotjuggler run \verb| ros2\run_controller.py| and  \verb|ros2\run_simulator.py.|
- 
 
 \begin{enumerate}[label=\arabic*.]
-	\item tune the weights of the MPC and  command a constant forward velocity.
-	\item What happens if you set W = 1000, 1000, 0.001 at Grfs weights? or W = 0.001, 0.001, 1000?
+	\item What happens if you set W = 1000, 1000, 0.001 at Grfs weights? or W = 0.001, 0.001, 1000? Modify the file \texttt{centroidal\_nmpc\_nominal.py}, line 507, and run \texttt{python3 simulation.py}
 	\item reduce to 1 the weight on pitch (base orientation weight) and try to climb on stairs.
-	\item Change the prediction horizon $N$ and evaluate stability, tracking, and computational time. Evaluate especially the performances for the crawl gait.
-	\item Increase the MPC loop duration $dT_{mpc}$ from 0.002 up 0.2 and evaluate the impact on walking performances and computation time.
-	\item what is the best tradeoff between $dT_{mpc}$ and MPC horizon $N$ for the crawl. What is the drawback of having a longer horizon in a real setting?
-	\item Having an horizon allows the MPC to run at much lower frequencies than a reactive controller, what is the minimum frequency that the MPC can still stabilize the system.
-	% warm start
-	%\item Increase the velocity tracking weight and observe the resulting gait.
-	\item trigger on and off the foothold optimization feature (if switched off is the Raiber style foothold optimization) and give disturbances to the robot pressing CTRL-mouse click
-	\item Compare the behaviour o a trot for different gait frequencies (from 1.4 Hz up to 2.4Hz ) and the the different robustness to disturbances  and the maximum velocity that you can achieve. What is the drawback of 
-	getting to high speed?
+	\item Change the prediction horizon $N$ and evaluate stability, tracking, and computational time. Evaluate especially the performances for the crawl gait. Modify the file \texttt{config.py}, line 92-215, and run \texttt{python3 simulation.py}.
+	\item Increase the MPC loop duration $dT_{mpc}$ from 0.002 up 0.2 and evaluate the impact on walking performances and computation time. Modify the file \texttt{config.py}, line 93, and run \texttt{python3 simulation.py}.
+	\item what is the best tradeoff between $dT_{mpc}$ and MPC horizon $N$ for the crawl? What is the drawback of having a longer horizon in a real setting?
+	\item Having an horizon allows the MPC to run at much lower frequencies than a reactive controller, what is the minimum frequency that the MPC can still stabilize the system? Modify the file \texttt{config.py}, N, dt, and run \texttt{python3 ros2\/run\_simulator.py} and in another terminal \texttt{python3 ros2\/run\_controller.py}.
+	\item Compare the behaviour o a trot/crawl for different gait frequencies (from 1.4 Hz up to 2.4Hz ) and the the different robustness to disturbances  and the maximum velocity that you can achieve. What is the drawback of 
+	getting to high speed? Modify the file \texttt{config.py}, line 215-2016, and run \texttt{python3 simulation.py}.
 \end{enumerate}
 
 
 
-\section{State Estimation}
+\section{Exercise 4: State Estimation}
 
-Replace the perfect simulated state with an estimated state. 
-
-Subscribe to the topic \verb| base_state_ekf|.  The estimator  combines:
+Replace the perfect simulated state with an estimated state. The estimator  combines:
 
 \begin{itemize}
     \item IMU angular velocity and linear acceleration;
@@ -257,97 +185,38 @@ Subscribe to the topic \verb| base_state_ekf|.  The estimator  combines:
 
 An Extended Kalman Filter can estimate base orientation, position, velocity, and IMU biases.
 
-\subsection*{Exercises}
+For this, you need to run from Quadruped-PyMPC (first repo):
+
+\[
+\begin{array}{ll}
+\texttt{python3 run\_simulator.py} & \text{(TERMINAL 1)} \\
+\texttt{python3 run\_controller.py} & \text{(TERMINAL 2)}
+\end{array}
+\]
+
+
+
+and from the repo iekf-legged-robot-pytorch (second repo):
+
+\[
+\begin{array}{ll}
+\texttt{python3 run\_state\_estimator\_ros2.py} & \text{(TERMINAL 3)} \\
+\texttt{source ros2\_ws/install/setup.bash} & \text{(TERMINAL 4)} \\
+\texttt{ros2 run plotjuggler plotjuggler} & \text{(TERMINAL 4)}
+\end{array}
+\]
+
+each of them with their own conda env!!!
+
+
+
 
 \begin{enumerate}[label=\arabic*.]
     \item Compare estimated and ground-truth base velocity.
-    \item try the reduce the frequency from 500 Hz (default) and check the degradation in the locomotion performances. 
-    \item Chance the belief on the filter inputs changint the doifferen covariances. If you add bias on accelerometers what happens to the estimation? 
-    Change to covariance to improve this (hint. increase covariance on IMU). 
+    \item Chance the belief on the filter inputs changing the different noise. If you add bias on accelerometers what happens to the estimation? Modify \texttt{python3 run\_simulator.py} line 202.
+    Change to noise in the estimation to improve this (Modify config.py inside iekf-legged-robot-pytorch). 
     \item Now remove the offset try to add gaussian noise to the joint velocities and increase the covariance to mitigate that. 
-    \item (optional) Study the effect of incorrect contact detection. CHange the minimum force threshold for contact detection and see how estimator performances are degrading.
+    \item (optional) Study the effect of incorrect contact detection. Change the minimum force threshold for contact detection and see how estimator performances are degrading. (Modify config.py inside iekf-legged-robot-pytorch). 
 \end{enumerate}
-%
-%\section{Frontal Reflex}
-%
-%A frontal reflex can be activated when the tracking error exceeds a threshold:
-%
-%\begin{align*}
-%\left\|
-%\bm{e}_{\mathrm{track}}
-%\right\|
-%>
-%e_{\mathrm{th}}.
-%\end{align*}
-%
-%Possible reflex actions are:
-%
-% 
-%
-%\subsection*{Exercises}
-%
-%\begin{enumerate}[label=\arabic*.]
-%    \item Define a frontal tracking error based on pitch, CoM displacement, or velocity.
-%    \item Select an activation threshold.
-%    \item Move against an obstacle (e.g. a step) with the blind robot
-%    \item Verify that the reflex is inactive during nominal walking.
-%    \item Tune the threshold to avoid late or unnecessary activation.
-%\end{enumerate}
-
-%\section{Vision-Based Foothold Height Adjustment}
-%
-%Use a terrain-height estimate to modify the vertical component of the planned foothold:
-%
-%\begin{align*}
-%p_{f,z}^{\mathrm{des}} =
-%h_{\mathrm{terrain}}
-%\left(
-%p_{f,x}^{\mathrm{des}},
-%p_{f,y}^{\mathrm{des}}
-%\right)
-%+
-%h_{\mathrm{margin}}.
-%\end{align*}
-%
-%The safety margin accounts for terrain-map uncertainty and contact-model imperfections.
-%
-%\subsection*{Exercises}
-%
-%\begin{enumerate}[label=\arabic*.]
-%    \item Test the controller on flat terrain.
-%    \item Add steps, ramps, and isolated obstacles.
-%    \item Query the terrain height at the planned foothold.
-%    \item Adjust touchdown height and swing-foot clearance.
-%    \item Compare missed contacts with and without height adjustment.
-%\end{enumerate}
-
-
-
-
-%
-%\subsection*{Final Experiment}
-%
-%\begin{enumerate}[label=\arabic*.]
-%    \item Create a rough-terrain scenario in MuJoCo.
-%    \item Run the robot with terrain estimation disabled.
-%    \item Repeat with terrain estimation enabled.
-%    \item Compare base orientation, foot tracking error, contact forces, and velocity tracking.
-%    \item Discuss the role of terrain estimation in stability and locomotion robustness.
-%\end{enumerate}
-
-%\section{Expected Final Demonstration}
-%
-%At the end of the practical session, the robot should be able to:
-%
-%\begin{itemize}
-%    \item Walk using crawl, pace, and trot gaits;
-%    \item Track a commanded body velocity using centroidal MPC;
-%    \item Generate swing-foot trajectories and stance torques;
-%    \item Use numerical or QP-based inverse kinematics;
-%    \item Adapt footholds with Raibert feedback and foothold optimization;
-%    \item Recover from pushes through corrective stepping;
-%    \item Compensate partially for an added payload using integral action;
-%    \item Walk on uneven terrain using terrain-aware foothold and base-orientation references.
-%\end{itemize}
 
 \end{document}

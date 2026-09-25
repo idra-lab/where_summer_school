@@ -162,7 +162,7 @@ Important parameters are:
 	\item Contact schedule and selected gait;
 	\item CoM position and velocity weights;
 	\item Base orientation and angular velocity weights;
-	\item Contact-force regularization - we ask the GRF to be at least equal to the one needed to compensate gravity, e.g. not making the robot collapse. For example, for Go2 that weights 15kg, the sum of the GRFs in the z direction is at least 15*9.81 Nm. If the robot has 4 foot on the ground, each foot should at least give 15*9.81/4 Nm. In the x-y direction we regularize to 0, because we don't know them;
+	\item Contact-force regularization - we ask the GRF to be at least equal to the one needed to compensate gravity, e.g. not making the robot collapse. For example, for Go2 that weights 15kg, the sum of the GRFs in the z direction is at least 15*9.81 N. If the robot has 4 foot on the ground, each foot should at least give 15*9.81/4 N. In the x-y direction we regularize to 0, because we don't know them; in this case you could consider reading this paper \cite{bratta2023optimization} for a better prior for X-Y components that takes into account under-actuation.  
 \end{itemize}
 
 
@@ -218,6 +218,14 @@ and from the repo iekf-legged-robot-pytorch (second repo):
 each of them with their own conda env!!!
 
 
+\begin{thebibliography}{99}
+	
+	\bibitem{bratta2023optimization}
+	A.~Bratta, M.~Focchi, N.~Rathod, and C.~Semini,
+	``Optimization-Based Reference Generator for Nonlinear Model Predictive Control of Legged Robots,''
+	\emph{Robotics}, 2023.
+	
+\end{thebibliography}
 
 
 \begin{enumerate}[label=\arabic*.]
@@ -227,5 +235,15 @@ each of them with their own conda env!!!
     \item Now remove the offset and try to add gaussian noise to the joint velocities and increase the appropriate filter covariance to mitigate that. 
     \item   Study the effect of incorrect contact detection. Change the minimum force threshold for contact detection and see how estimator performances are degrading in position estimate, which direction is the most affected. (Modify \verb|iekf-legged-robot-pytorch/config.py|). 
 \end{enumerate}
+
+
+\begin{thebibliography}{99}
+	
+	\bibitem{bratta2023optimization}
+	A.~Bratta, M.~Focchi, N.~Rathod, and C.~Semini,
+	``Optimization-Based Reference Generator for Nonlinear Model Predictive Control of Legged Robots,''
+	\emph{Robotics}, 2023.
+	
+\end{thebibliography}
 
 \end{document}
